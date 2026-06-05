@@ -1,0 +1,13 @@
+/build
+/.cache
+/.vscode
+/CMakeFiles
+/tests/CMakeFiles
+/tests/CMakeCache.txt
+
+/tests/CTestTestfile.cmake
+/tests/Makefile
+/tests/cmake_install.cmake
+
+/to-do
+/third_party
