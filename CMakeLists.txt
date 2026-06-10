@@ -14,6 +14,8 @@ set(CORE_SOURCES
     src/core/queue.c
     src/core/db_manager.c
     src/core/models.c
+    src/core/cli_output.c
+    src/core/logger.c
 )
 
 add_executable(fuckman

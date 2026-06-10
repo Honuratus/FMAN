@@ -18,6 +18,18 @@ static void* safe_copy_blob(const void* src, size_t len) {
     return dest;
 }
 
+const char* response_result_to_char(ResponseResults rr){
+    switch (rr)
+    {
+    case RESPONSE_OK:
+        return "OK";
+    case RESPONSE_CURL_ERROR:
+            return "CURL_ERROR";
+    default:
+        return "UNKNOWN";     
+    }
+}
+
 Request* create_request(
     Method method,
     int collection_id,

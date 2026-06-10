@@ -9,6 +9,7 @@
 #include "orchestrator.h"
 #include "models.h"
 #include "db_manager.h"
+#include "logger.h"
 
 #define INITIAL_CAPACITY 4096
 
@@ -122,7 +123,7 @@ void* http_worker_routine(void* arg) {
         Request* req = (Request*)task->data;
         if(!req) goto cleanup_task;
 
-        printf("[İŞÇİ %lu] is basinda! Hedef: %s\n", pthread_self() % 1000, req->url);
+        LOG_INFO("[İŞÇİ %lu] is basinda! Hedef: %s\n", pthread_self() % 1000, req->url);
 
 
         // response allocate 
@@ -256,6 +257,10 @@ void* http_worker_routine(void* arg) {
                 }
             }
 
+            double total_time = 0.0;
+            if (curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &total_time) == CURLE_OK){
+                response->duration = total_time;
+            }
 
         }
         
@@ -292,7 +297,7 @@ cleanup_task:
 void* db_worker_routine(void* arg) {
     
 
-    printf("[DB Worker] Started and listening to db_queue...\n");
+    LOG_INFO("[DB Worker] Started and listening to db_queue...\n");
 
 
     Runtime* o = (Runtime*)arg;
@@ -320,7 +325,7 @@ void* db_worker_routine(void* arg) {
                 break;
             }
             case DB_TASK_SHUTDOWN: {
-                printf("[DB Worker] Shutdown signal received. Exiting...\n");
+                LOG_INFO("[DB Worker] Shutdown signal received. Exiting...\n");
                 free(task);
                 return NULL; 
             }
@@ -347,7 +352,7 @@ void* db_worker_routine(void* arg) {
             }
 
             default:
-                fprintf(stderr, "[DB Worker] Unknown task type!\n");
+                LOG_ERROR("[DB Worker] Unknown task type!\n");
                 break;
         }
 

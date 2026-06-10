@@ -102,6 +102,9 @@ Request* create_request(
 Collection* create_collection(const char* name);
 WorkerTask* create_http_worker_task(Request* req);
 
+const char* response_result_to_char(ResponseResults rr);
+
+
 #endif
 
 

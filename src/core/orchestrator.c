@@ -7,6 +7,7 @@
 #include "queue.h"
 #include "worker.h"
 #include "db_manager.h"
+#include "logger.h"
 
 Runtime* create_runtime(int num_http_worker){
 	if(num_http_worker <= 0) return NULL;
@@ -139,7 +140,7 @@ void* dispatcher_routine(void* arg) {
 
     if (!o) return NULL;
 
-    printf("[Orchestrator] Döngü başladı, trafik yönetiliyor...\n");
+    LOG_INFO("[Orchestrator] Döngü başladı, trafik yönetiliyor...\n");
 
     
     while (1) {
@@ -149,7 +150,7 @@ void* dispatcher_routine(void* arg) {
 
 
 		
-		printf("[Orchestrator] HTTP Worker bir isteği tamamladı! Status: %d\n", resp->status_code); 
+		LOG_INFO("[Orchestrator] HTTP Worker bir isteği tamamladı! Status: %d\n", resp->status_code); 
 		
 		
 

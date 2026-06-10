@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "db_manager.h"
+#include "logger.h"
 
 sqlite3 *db = NULL;
 
@@ -84,7 +85,7 @@ int db_init(const char* db_name){
         return rc;
     }
 
-    printf("[Info] DB and Tables are ready.\n");
+    LOG_INFO("[Info] DB and Tables are ready.\n");
     return SQLITE_OK;
 }
 
@@ -109,7 +110,7 @@ int db_save_collection(Collection* coll){
     if (sqlite3_step(stmt) != SQLITE_DONE) goto failure;
 
     coll->id = (int)sqlite3_last_insert_rowid(db);
-    printf("[Info] Collection saved with ID: %d\n", coll->id);
+    LOG_INFO("[Info] Collection saved with ID: %d\n", coll->id);
 
     sqlite3_finalize(stmt);
     return SQLITE_OK;
@@ -183,7 +184,7 @@ int db_save_response(Response* resp){
     if (sqlite3_step(stmt) != SQLITE_DONE) goto failure;
 
     resp->id = (int)sqlite3_last_insert_rowid(db);
-    printf("[Info] Response saved with ID: %d\n", resp->id);
+    LOG_INFO("[Info] Response saved with ID: %d\n", resp->id);
 
     sqlite3_finalize(stmt);
     return SQLITE_OK;
@@ -224,7 +225,7 @@ int db_save_request(Request* req){
     if (sqlite3_step(stmt) != SQLITE_DONE) goto failure;
 
     req->id = (int)sqlite3_last_insert_rowid(db);
-    printf("[Info] Request saved with ID: %d\n", req->id);
+    LOG_INFO("[Info] Request saved with ID: %d\n", req->id);
 
     sqlite3_finalize(stmt);
     return SQLITE_OK;
