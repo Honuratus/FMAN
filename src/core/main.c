@@ -1,12 +1,40 @@
 #include "db_manager.h"
 #include "orchestrator.h"
 #include "cli_output.h"
+#include "assertion.h"
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
-static int run_get_command(const char* url){
+void print_assertion_result(const AssertionResult* result) {
+    if (!result) {
+        return;
+    }
+
+    switch (result->type) {
+    case ASSERT_STATUS_EQ:
+        if (result->passed) {
+            printf("  ✓ status == %d\n", result->expected.as.int_value);
+        } else {
+            printf("  ✗ status == %d\n", result->expected.as.int_value);
+            printf("    expected: %d\n", result->expected.as.int_value);
+            printf("    actual:   %d\n", result->actual.as.int_value);
+        }
+        break;
+
+    default:
+        printf("  ✗ unknown assertion\n");
+        if (result->message) {
+            printf("    message: %s\n", result->message);
+        }
+        break;
+    }
+}
+
+
+static int run_get_command(const char* url, Assertion* as){
     int rc = 0;
     int exit_code = -1;
 
@@ -91,8 +119,17 @@ static int run_get_command(const char* url){
     }
 
     print_response_summary(resp);
-
+    
     exit_code = 0;
+
+    if(as){
+        printf("\nAssertions:\n");
+        AssertionResult as_result = eval_assertion(resp,as);
+        print_assertion_result(&as_result);
+        printf("\nAssertion Result: %s\n", as_result.passed ? "PASS" : "FAIL");
+        exit_code = as_result.passed ? 0 : 1;
+    }
+
 
 cleanup:
     if(resp)
@@ -112,32 +149,58 @@ cleanup:
 
 static void print_usage(const char* program_name){
     printf("Usage:\n");
-    printf("\t%s GET <url>\n", program_name);
+    printf("\t%s GET <url> [options]\n", program_name);
     printf("\n");
+
+    printf("Usage:\n");
+    printf("\t--expect-status <code>\tExpect HTTP status code\n", program_name);
+    printf("\n");
+
 
     printf("\nExamples:\n");
     printf("\t%s GET https://example.com\n", program_name);
     printf("\t%s GET google.com\n", program_name);
+    printf("\t%s GET https://example.com --expect-status 200\n", program_name);
     printf("\n");
 }
 
 
+
 int main(int argc, char** argv){
-    if(argc != 3){
+    if(argc < 3){
         print_usage(argv[0]);
         return -1;
     }
 
     char* command = argv[1];
-    if(!command){
-        printf("Command is expected.");
-        return -1;
-    }
     
+    Assertion assertion = {0};
+    Assertion* assertion_ptr = NULL;
+    
+    for (int i = 3; i < argc; i++) {
+        if (strcmp(argv[i], "--expect-status") == 0) {
+            if (i + 1 >= argc) {
+                printf("--expect-status requires a value.\n");
+                return -1;
+            }
+
+            assertion.type = ASSERT_STATUS_EQ;
+            assertion.expected.type = VALUE_INT;
+            assertion.expected.as.int_value = atoi(argv[i + 1]);
+            assertion_ptr = &assertion;
+
+            i++;
+        } else {
+            printf("Unknown option: %s\n", argv[i]);
+            print_usage(argv[0]);
+            return -1;
+        }
+    }
+
 
     // GET COMMAND
     if(strcmp("GET", command) == 0){
-        return run_get_command(argv[2]);
+        return run_get_command(argv[2],assertion_ptr);
     }
 
     printf("Unsupported command: %s\n", command);

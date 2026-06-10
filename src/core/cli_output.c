@@ -60,14 +60,17 @@ void print_response_summary(const Response* rep) {
         headers_len = strlen(rep->headers);
     }
 
+
+    printf("Body: %zu bytes\n", rep->body_len);
+
     if (rep->headers && headers_len > 0) {
         printf("Headers: %zu bytes\n", headers_len);
+        printf("\n");
         print_preview("Headers", rep->headers, headers_len, HEADER_PREVIEW_LIMIT);
     } else {
         printf("Headers: -\n");
     }
 
-    printf("Body: %zu bytes\n", rep->body_len);
 
     if (!rep->body || rep->body_len == 0) {
         return;

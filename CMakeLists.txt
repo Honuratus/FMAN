@@ -16,6 +16,7 @@ set(CORE_SOURCES
     src/core/models.c
     src/core/cli_output.c
     src/core/logger.c
+    src/core/assertion.c
 )
 
 add_executable(fuckman
