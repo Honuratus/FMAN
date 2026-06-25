@@ -10,5 +10,6 @@
 /tests/cmake_install.cmake
 
 /to-do
-/third_party
+
 /external/
+runner.db

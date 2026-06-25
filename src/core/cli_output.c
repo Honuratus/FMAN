@@ -120,6 +120,50 @@ void print_assertion_result(const AssertionResult* result) {
 
         break;
     }
+
+    case ASSERT_HEADER_CONTAINS: {
+        const HeaderExpect *expected = &result->expected.as.header_value;
+
+        const char *name = expected->name ? expected->name : "(null)";
+        const char *value = expected->value ? expected->value : "(null)";
+
+        if (result->passed) {
+            printf("  ✓ header contains %s: %s\n", name, value);
+        } else {
+            printf("  ✗ header contains %s: %s\n", name, value);
+
+            printf("    expected header: %s: %s\n", name, value);
+
+            if (result->actual.type == VALUE_STRING && result->actual.as.string_value) {
+                printf("    actual headers:\n");
+
+                const char *p = result->actual.as.string_value;
+                while (*p) {
+                    printf("      ");
+
+                    while (*p && *p != '\n') {
+                        putchar(*p);
+                        p++;
+                    }
+
+                    if (*p == '\n') {
+                        p++;
+                    }
+
+                    putchar('\n');
+                }
+            } else {
+                printf("    actual headers: (none)\n");
+            }
+
+            if (result->message) {
+                printf("    message: %s\n", result->message);
+            }
+        }
+
+        break;
+    }
+
     default:
         printf("  ✗ unknown assertion\n");
         if (result->message) {

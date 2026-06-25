@@ -127,6 +127,35 @@ int parse_cli_options(int argc, char** argv, CliOptions* options){
             }
             i++;
         }
+        else if (strcmp(argv[i] , "--expect-header") == 0) {
+            if (i + 2 >= argc) {
+                printf("--expect-header requires a key value pair.\n");
+                return -1;
+            }
+
+            const char* key = argv[i+1];
+            const char* value = argv[i+2];
+
+            HeaderExpect expected = {
+                .name = key,
+                .value = value
+            };
+
+            if(options->assertion_count >= MAX_ASSERTION){
+                printf("Too many assertions, max is %d\n", MAX_ASSERTION);
+                return -1;
+            }
+
+            assertion = &options->assertions[options->assertion_count++];
+            assertion->type = ASSERT_HEADER_CONTAINS;
+            assertion->expected.type = VALUE_HEADER;
+
+            assertion->expected.as.header_value = expected;
+
+
+            i+=2;
+        }
+
         else {
             printf("Unknown option: %s\n", argv[i]);
             return -1;

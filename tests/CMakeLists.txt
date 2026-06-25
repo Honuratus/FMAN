@@ -1,6 +1,6 @@
 # unity.c dosyası src klasörünün içinde
-add_library(unity ../external/unity/src/unity.c)
-target_include_directories(unity PUBLIC ../external/unity/src)
+add_library(unity ../third_party/unity/src/unity.c)
+target_include_directories(unity PUBLIC ../third_party/unity/src)
 
 # 1. src/core içindeki TÜM .c dosyalarını topla
 file(GLOB CORE_SOURCES "${CMAKE_SOURCE_DIR}/src/core/*.c")

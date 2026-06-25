@@ -11,13 +11,21 @@ typedef struct {
 }
 Bytes;
 
+typedef struct 
+{
+    const char* name;
+    const char* value;
+}HeaderExpect;
+
+
 typedef enum{
     VALUE_NONE,
     VALUE_INT,
     VALUE_STRING,
     VALUE_BOOL,
     VALUE_DOUBLE,
-    VALUE_BYTES
+    VALUE_BYTES,
+    VALUE_HEADER
 }ValueType;
 
 typedef struct 
@@ -29,6 +37,7 @@ typedef struct
         int bool_value;
         double double_value;
         Bytes byte_value;
+        HeaderExpect header_value;
     } as;
 }Value;
 
@@ -36,6 +45,7 @@ typedef struct
 typedef enum{
     ASSERT_STATUS_EQ,
     ASSERT_BODY_CONTAINS,
+    ASSERT_HEADER_CONTAINS
 }AssertionType;
 
 typedef struct{
