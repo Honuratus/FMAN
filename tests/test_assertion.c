@@ -280,6 +280,76 @@ void test_body_contains_should_fail_when_body_is_empty(void)
     TEST_ASSERT_NOT_NULL(result.message);
 }
 
+
+static Response make_response_with_headers(const char *headers)
+{
+    Response resp = {0};
+    resp.status_code = 200;
+    resp.headers = (char *)headers;
+    resp.headers_len = headers ? strlen(headers) : 0;
+    return resp;
+}
+
+void test_header_assertion_passes_when_header_name_case_differs(void)
+{
+    const char *headers =
+        "HTTP/2 200 \r\n"
+        "date: Thu, 25 Jun 2026 22:36:46 GMT\r\n"
+        "content-type: text/html\r\n"
+        "server: cloudflare\r\n";
+
+    Response resp = make_response_with_headers(headers);
+
+    Assertion assertion = {0};
+    assertion.type = ASSERT_HEADER_CONTAINS;
+    assertion.expected.type = VALUE_HEADER;
+    assertion.expected.as.header_value.name = "Content-Type";
+    assertion.expected.as.header_value.value = "text/html";
+
+    AssertionResult result = eval_assertion(&resp, &assertion);
+
+    TEST_ASSERT_TRUE(result.passed);
+}
+
+void test_header_assertion_fails_when_value_differs(void)
+{
+    const char *headers =
+        "HTTP/2 200 \r\n"
+        "content-type: text/html\r\n"
+        "server: cloudflare\r\n";
+
+    Response resp = make_response_with_headers(headers);
+
+    Assertion assertion = {0};
+    assertion.type = ASSERT_HEADER_CONTAINS;
+    assertion.expected.type = VALUE_HEADER;
+    assertion.expected.as.header_value.name = "Content-Type";
+    assertion.expected.as.header_value.value = "application/json";
+
+    AssertionResult result = eval_assertion(&resp, &assertion);
+
+    TEST_ASSERT_FALSE(result.passed);
+}
+
+void test_header_assertion_fails_when_header_missing(void)
+{
+    const char *headers =
+        "HTTP/2 200 \r\n"
+        "server: cloudflare\r\n";
+
+    Response resp = make_response_with_headers(headers);
+
+    Assertion assertion = {0};
+    assertion.type = ASSERT_HEADER_CONTAINS;
+    assertion.expected.type = VALUE_HEADER;
+    assertion.expected.as.header_value.name = "Content-Type";
+    assertion.expected.as.header_value.value = "text/html";
+
+    AssertionResult result = eval_assertion(&resp, &assertion);
+
+    TEST_ASSERT_FALSE(result.passed);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -298,5 +368,9 @@ int main(void)
     RUN_TEST(test_body_contains_should_fail_when_expected_type_is_not_bytes);
     RUN_TEST(test_body_contains_should_fail_when_body_is_empty);
 
+
+    RUN_TEST(test_header_assertion_passes_when_header_name_case_differs);
+    RUN_TEST(test_header_assertion_fails_when_value_differs);
+    RUN_TEST(test_header_assertion_fails_when_header_missing);
     return UNITY_END();
 }
