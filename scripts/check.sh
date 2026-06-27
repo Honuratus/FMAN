@@ -58,12 +58,12 @@ ctest --test-dir build --output-on-failure
 
 echo "[6/7] Smoke tests"
 
-./build/fuckman GET "https://example.com" \
+./build/fuckman get "https://example.com" \
     --expect-status 200 \
     --expect-body "Example Domain"
 
 set +e
-./build/fuckman GET "https://example.com" \
+./build/fuckman get "https://example.com" \
     --expect-status 404 \
     --expect-body "Example Domain"
 FAIL_CODE=$?
@@ -74,7 +74,7 @@ if [ "$FAIL_CODE" -eq 0 ]; then
     exit 1
 fi
 
-./build/fuckman GET "${BASE_URL}/test.bin" \
+./build/fuckman get "${BASE_URL}/test.bin" \
     --expect-status 200 \
     --expect-body hex:7F8A
 
@@ -86,7 +86,7 @@ if command -v valgrind >/dev/null 2>&1; then
         --show-leak-kinds=all \
         --error-exitcode=99 \
         --suppressions=tools/valgrind.supp \
-        ./build/fuckman GET "${BASE_URL}/test.bin" \
+        ./build/fuckman get "${BASE_URL}/test.bin" \
             --expect-status 200 \
             --expect-body hex:7F8A
 else
