@@ -37,6 +37,6 @@ jobs:
         run: cmake --build build
 
       - name: Start local test server
-        run: 
+        run: |
           chmod +x scripts/check.sh
           ./scripts/check.sh
