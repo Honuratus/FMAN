@@ -9,6 +9,40 @@ BIN="${BUILD_DIR}/fman"
 SERVER_LOG="${BUILD_DIR}/fman-http.log"
 SERVER_PY="${BUILD_DIR}/fman_test_server.py"
 
+PARSER_NEGATIVE_LOG="${BUILD_DIR}/fman-parser-negative.out"
+
+GENERATED_FILES=(
+    "${BUILD_DIR}/test.bin"
+    "${BUILD_DIR}/smoke.fman"
+    "${BUILD_DIR}/fail.fman"
+    "${BUILD_DIR}/parser_bad_missing_url.fman"
+    "${BUILD_DIR}/parser_bad_command.fman"
+    "${BUILD_DIR}/parser_bad_assertion.fman"
+    "${BUILD_DIR}/parallel.fman"
+    "${BUILD_DIR}/fman_test_server.py"
+    "${BUILD_DIR}/fman-http.log"
+    "${BUILD_DIR}/fman-parser-negative.out"
+    "runner.db"
+    "test_runtime.db"
+    ".fman/default.db"
+)
+
+cleanup() {
+    if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        kill "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
+    fi
+
+    for file in "${GENERATED_FILES[@]}"; do
+        rm -f "$file" 2>/dev/null || true
+    done
+
+    rmdir ".fman" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+
 echo "[1/10] Configure"
 cmake -S . -B "$BUILD_DIR" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
@@ -176,14 +210,6 @@ rm -f "$SERVER_LOG"
 HOST="$HOST" PORT="$PORT" python3 "$SERVER_PY" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-cleanup() {
-    if kill -0 "$SERVER_PID" 2>/dev/null; then
-        kill "$SERVER_PID" 2>/dev/null || true
-        wait "$SERVER_PID" 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT
-
 echo "Waiting for server at ${BASE_URL}/ok"
 
 SERVER_READY=0
@@ -213,12 +239,12 @@ ctest --test-dir "$BUILD_DIR" --output-on-failure
 
 echo "[7/10] CLI smoke tests"
 
-"$BIN" get "https://example.com" \
+"$BIN" get "${BASE_URL}/text" \
     --expect-status 200 \
     --expect-body "Example Domain"
 
 set +e
-"$BIN" get "https://example.com" \
+"$BIN" get "${BASE_URL}/text" \
     --expect-status 404 \
     --expect-body "Example Domain"
 FAIL_CODE=$?
@@ -253,13 +279,13 @@ for bad_file in \
     "${BUILD_DIR}/parser_bad_assertion.fman"
 do
     set +e
-    "$BIN" run "$bad_file" >/tmp/fman-parser-negative.out 2>&1
+    "$BIN" run "$bad_file" >"$PARSER_NEGATIVE_LOG" 2>&1
     FAIL_CODE=$?
     set -e
 
     if [ "$FAIL_CODE" -eq 0 ]; then
         echo "Expected parser failure for $bad_file, got success."
-        cat /tmp/fman-parser-negative.out || true
+        cat "$PARSER_NEGATIVE_LOG" || true
         exit 1
     fi
 done
@@ -312,8 +338,6 @@ if command -v valgrind >/dev/null 2>&1; then
 else
     echo "valgrind not found, skipping."
 fi
-
-rm -rf runner.db
 
 echo
 echo "All checks passed."
