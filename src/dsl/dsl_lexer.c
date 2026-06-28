@@ -113,6 +113,7 @@ static DslTokenType keyword_type(const char *word)
     if (strcmp(word, "header") == 0) return DSL_TOKEN_HEADER;
     if (strcmp(word, "body") == 0) return DSL_TOKEN_BODY;
     if (strcmp(word, "contains") == 0) return DSL_TOKEN_CONTAINS;
+    if(strcmp(word, "BODY") == 0) return DSL_TOKEN_BODY_STMT;
 
     return DSL_TOKEN_IDENT;
 }

@@ -24,6 +24,7 @@ static bool parse_program(DslParser *parser, RunPlan *plan);
 static bool parse_statement(DslParser *parser, RunPlan *plan);
 static bool parse_request_stmt(DslParser *parser, RunPlan *plan);
 static bool parse_expect_stmt(DslParser *parser, RunPlan *plan);
+static bool parse_body_stmt(DslParser* parser ,RunPlan* plan);
 
 static bool parse_assertion(DslParser *parser, RequestCase *request_case);
 static bool parse_status_assertion(DslParser *parser, RequestCase *request_case);
@@ -247,6 +248,10 @@ static bool parse_statement(DslParser *parser, RunPlan *plan)
         check(parser, DSL_TOKEN_PATCH)) {
         return parse_request_stmt(parser, plan);
     }
+    
+    if (check(parser, DSL_TOKEN_BODY_STMT)) {
+        return parse_body_stmt(parser, plan);
+    }
 
     if (check(parser, DSL_TOKEN_EXPECT)) {
         return parse_expect_stmt(parser, plan);
@@ -274,6 +279,56 @@ static Method method_from_token(DslTokenType type)
     }
 }
 
+static bool parse_body_stmt(DslParser *parser, RunPlan *plan)
+{
+    if (!parser || !plan) {
+        return false;
+    }
+
+    if (plan->case_count == 0) {
+        parser_error(parser, "BODY must appear after a request statement");
+        return false;
+    }
+
+    advance_parser(parser); /* consume BODY */
+
+    /*
+     * MVP:
+     * BODY hello
+     * BODY "{\"name\":\"batuhan\"}"
+    */
+    if (!(check(parser, DSL_TOKEN_IDENT) || check(parser, DSL_TOKEN_STRING))) {
+        parser_error(parser, "expected body value after BODY");
+        return false;
+    }
+
+    DslToken body_token = parser->current;
+    advance_parser(parser);
+
+    RequestCase *request_case = &plan->cases[plan->case_count - 1];
+
+    free(request_case->body);
+
+    request_case->body = strdup(body_token.str);
+    if (!request_case->body) {
+        parser_error(parser, "out of memory while copying request body");
+        return false;
+    }
+
+    request_case->body_len = strlen(request_case->body);
+
+    if (check(parser, DSL_TOKEN_NEWLINE)) {
+        advance_parser(parser);
+        return true;
+    }
+
+    if (check(parser, DSL_TOKEN_EOF)) {
+        return true;
+    }
+
+    parser_error(parser, "expected newline after BODY statement");
+    return false;
+}
 
 static bool parse_request_stmt(DslParser *parser, RunPlan *plan)
 {

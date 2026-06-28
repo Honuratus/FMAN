@@ -14,6 +14,7 @@ typedef enum {
     DSL_TOKEN_DELETE,
     DSL_TOKEN_PATCH,
 
+    DSL_TOKEN_BODY_STMT,
     DSL_TOKEN_EXPECT,
     DSL_TOKEN_STATUS,
     DSL_TOKEN_HEADER,
@@ -22,7 +23,8 @@ typedef enum {
 
     DSL_TOKEN_INT,
     DSL_TOKEN_STRING,
-    DSL_TOKEN_IDENT
+    DSL_TOKEN_IDENT,
+    
 } DslTokenType;
 
 typedef struct {
