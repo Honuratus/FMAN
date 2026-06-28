@@ -11,7 +11,7 @@
 #include "models.h"
 
 #define TEST_DB_NAME "test_runtime.db"
-#define TEST_URL "http://127.0.0.1:8080/"
+#define TEST_URL "http://127.0.0.1:8080/bin"
 #define TEST_TIMEOUT_MS 5000
 #define POLL_INTERVAL_MS 100
 

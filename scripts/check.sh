@@ -2,23 +2,178 @@
 set -euo pipefail
 
 PORT="${PORT:-8080}"
-HOST="127.0.0.1"
+HOST="${HOST:-127.0.0.1}"
 BASE_URL="http://${HOST}:${PORT}"
-SERVER_LOG="/tmp/fuckman-http.log"
+BUILD_DIR="${BUILD_DIR:-build}"
+BIN="${BUILD_DIR}/fman"
+SERVER_LOG="${BUILD_DIR}/fman-http.log"
+SERVER_PY="${BUILD_DIR}/fman_test_server.py"
 
-echo "[1/7] Configure"
-cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+echo "[1/10] Configure"
+cmake -S . -B "$BUILD_DIR" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-echo "[2/7] Build"
-cmake --build build
+echo "[2/10] Build"
+cmake --build "$BUILD_DIR"
 
-echo "[3/7] Prepare test files"
-printf '\x01\x02\x7F\x8A\xFF' > build/test.bin
+echo "[3/10] Verify binary and README assets"
 
-echo "[4/7] Start HTTP test server"
+if [ ! -x "$BIN" ]; then
+    echo "Expected executable not found: $BIN"
+    exit 1
+fi
+
+for asset in \
+    images/demo.gif \
+    images/arch.png \
+    images/performance.png \
+    images/throughput.png \
+    images/memory.png
+do
+    if [ ! -f "$asset" ]; then
+        echo "Missing README asset: $asset"
+        exit 1
+    fi
+done
+
+echo "[4/10] Prepare test files"
+
+printf '\x01\x02\x7F\x8A\xFF' > "${BUILD_DIR}/test.bin"
+
+cat > "${BUILD_DIR}/smoke.fman" << EOF
+GET ${BASE_URL}/ok
+EXPECT status 200
+EXPECT body contains "OK"
+
+GET ${BASE_URL}/header
+EXPECT status 200
+EXPECT header X-Test fman
+EOF
+
+cat > "${BUILD_DIR}/fail.fman" << EOF
+GET ${BASE_URL}/ok
+EXPECT status 404
+EOF
+
+cat > "${BUILD_DIR}/parser_bad_missing_url.fman" << EOF
+GET
+EXPECT status 200
+EOF
+
+cat > "${BUILD_DIR}/parser_bad_command.fman" << EOF
+POSTT ${BASE_URL}/ok
+EXPECT status 200
+EOF
+
+cat > "${BUILD_DIR}/parser_bad_assertion.fman" << EOF
+GET ${BASE_URL}/ok
+EXPECT banana 123
+EOF
+
+cat > "${BUILD_DIR}/parallel.fman" << EOF
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+
+GET ${BASE_URL}/slow/200
+EXPECT status 200
+EOF
+
+cat > "$SERVER_PY" << 'PY'
+#!/usr/bin/env python3
+import os
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8080"))
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        return
+
+    def send_text(self, status, body, headers=None):
+        data = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(data)))
+
+        if headers:
+            for key, value in headers.items():
+                self.send_header(key, value)
+
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_binary(self, status, data):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0]
+
+        if path == "/ok":
+            self.send_text(200, "OK")
+            return
+
+        if path == "/text":
+            self.send_text(200, "Example Domain")
+            return
+
+        if path == "/header":
+            self.send_text(200, "OK", {"X-Test": "fman"})
+            return
+
+        if path == "/fail":
+            self.send_text(500, "FAIL")
+            return
+
+        if path == "/test.bin" or path == "/bin":
+            self.send_binary(200, bytes([0x01, 0x02, 0x7F, 0x8A, 0xFF]))
+            return
+
+        if path.startswith("/slow/"):
+            try:
+                delay_ms = int(path.rsplit("/", 1)[1])
+            except ValueError:
+                self.send_text(400, "bad delay")
+                return
+
+            time.sleep(delay_ms / 1000.0)
+            self.send_text(200, "SLOW OK")
+            return
+
+        self.send_text(404, "NOT FOUND")
+
+server = ThreadingHTTPServer((HOST, PORT), Handler)
+server.serve_forever()
+PY
+
+chmod +x "$SERVER_PY"
+
+echo "[5/10] Start HTTP test server"
 rm -f "$SERVER_LOG"
 
-python3 -m http.server "$PORT" --bind "$HOST" --directory build >"$SERVER_LOG" 2>&1 &
+HOST="$HOST" PORT="$PORT" python3 "$SERVER_PY" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {
@@ -29,11 +184,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Waiting for server at ${BASE_URL}/test.bin"
+echo "Waiting for server at ${BASE_URL}/ok"
 
 SERVER_READY=0
 for _ in {1..50}; do
-    if curl -fsS "${BASE_URL}/test.bin" >/dev/null 2>&1; then
+    if curl -fsS "${BASE_URL}/ok" >/dev/null 2>&1; then
         SERVER_READY=1
         break
     fi
@@ -53,32 +208,90 @@ if [ "$SERVER_READY" -ne 1 ]; then
     exit 1
 fi
 
-echo "[5/7] Unit/integration tests"
-ctest --test-dir build --output-on-failure
+echo "[6/10] Unit/integration tests"
+ctest --test-dir "$BUILD_DIR" --output-on-failure
 
-echo "[6/7] Smoke tests"
+echo "[7/10] CLI smoke tests"
 
-./build/fuckman get "https://example.com" \
+"$BIN" get "https://example.com" \
     --expect-status 200 \
     --expect-body "Example Domain"
 
 set +e
-./build/fuckman get "https://example.com" \
+"$BIN" get "https://example.com" \
     --expect-status 404 \
     --expect-body "Example Domain"
 FAIL_CODE=$?
 set -e
 
 if [ "$FAIL_CODE" -eq 0 ]; then
-    echo "Expected failing assertion test to return non-zero, got 0."
+    echo "Expected failing CLI assertion test to return non-zero, got 0."
     exit 1
 fi
 
-./build/fuckman get "${BASE_URL}/test.bin" \
+"$BIN" get "${BASE_URL}/test.bin" \
     --expect-status 200 \
     --expect-body hex:7F8A
 
-echo "[7/7] Valgrind"
+echo "[8/10] DSL smoke and failure tests"
+
+"$BIN" run "${BUILD_DIR}/smoke.fman"
+
+set +e
+"$BIN" run "${BUILD_DIR}/fail.fman"
+FAIL_CODE=$?
+set -e
+
+if [ "$FAIL_CODE" -eq 0 ]; then
+    echo "Expected failing DSL assertion test to return non-zero, got 0."
+    exit 1
+fi
+
+for bad_file in \
+    "${BUILD_DIR}/parser_bad_missing_url.fman" \
+    "${BUILD_DIR}/parser_bad_command.fman" \
+    "${BUILD_DIR}/parser_bad_assertion.fman"
+do
+    set +e
+    "$BIN" run "$bad_file" >/tmp/fman-parser-negative.out 2>&1
+    FAIL_CODE=$?
+    set -e
+
+    if [ "$FAIL_CODE" -eq 0 ]; then
+        echo "Expected parser failure for $bad_file, got success."
+        cat /tmp/fman-parser-negative.out || true
+        exit 1
+    fi
+done
+
+echo "[9/10] Parallel RunPlan test"
+
+python3 - "$BIN" "${BUILD_DIR}/parallel.fman" << 'PY'
+import subprocess
+import sys
+import time
+
+binary = sys.argv[1]
+plan = sys.argv[2]
+
+start = time.perf_counter()
+result = subprocess.run([binary, "run", plan])
+elapsed = time.perf_counter() - start
+
+if result.returncode != 0:
+    print(f"Parallel DSL run failed with exit code {result.returncode}")
+    sys.exit(result.returncode)
+
+print(f"Parallel DSL run elapsed: {elapsed:.3f} s")
+
+# 8 requests * 200 ms = ~1.6 s if effectively sequential.
+# Keep the threshold loose enough for slow machines but low enough to catch sequential execution.
+if elapsed > 1.30:
+    print("Parallel runtime check failed: elapsed time suggests sequential execution.")
+    sys.exit(1)
+PY
+
+echo "[10/10] Valgrind"
 
 if command -v valgrind >/dev/null 2>&1; then
     valgrind \
@@ -86,12 +299,21 @@ if command -v valgrind >/dev/null 2>&1; then
         --show-leak-kinds=all \
         --error-exitcode=99 \
         --suppressions=tools/valgrind.supp \
-        ./build/fuckman get "${BASE_URL}/test.bin" \
+        "$BIN" get "${BASE_URL}/test.bin" \
             --expect-status 200 \
             --expect-body hex:7F8A
+
+    valgrind \
+        --leak-check=full \
+        --show-leak-kinds=all \
+        --error-exitcode=99 \
+        --suppressions=tools/valgrind.supp \
+        "$BIN" run "${BUILD_DIR}/smoke.fman"
 else
     echo "valgrind not found, skipping."
 fi
+
+rm -rf runner.db
 
 echo
 echo "All checks passed."

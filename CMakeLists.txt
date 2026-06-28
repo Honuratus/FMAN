@@ -52,19 +52,19 @@ set(DSL_SOURCES
     src/dsl/dsl_lexer.c
 )
 
-add_executable(fuckman
+add_executable(fman
     ${CLI_SOURCES}
     ${DSL_SOURCES}
 )
 
-target_compile_options(fuckman PRIVATE -Wall -Wextra)
+target_compile_options(fman PRIVATE -Wall -Wextra)
 
-target_include_directories(fuckman PRIVATE
+target_include_directories(fman PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cli
     ${CMAKE_CURRENT_SOURCE_DIR}/include/dsl
 )
 
-target_link_libraries(fuckman PRIVATE
+target_link_libraries(fman PRIVATE
     httpruntime_core
 )
 
