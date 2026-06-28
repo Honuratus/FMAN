@@ -1,58 +1,30 @@
+<div align="center">
+
 # FMAN
 
-**A lightweight, parallel API testing runtime written in ISO C99.**
+**Parallel HTTP API test runner written in ISO C99**
 
- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]() [![Memory Safety](https://img.shields.io/badge/Valgrind-clean-blue.svg)]()
-<p align="center">
-  <img src="images/demo.gif" alt="FMAN Demo" width="900">
-</p>
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Valgrind](https://img.shields.io/badge/Valgrind-clean-blue.svg)]()
 
-FMAN is not another HTTP client. It is a native execution runtime — CLI and DSL share one parallel engine, one assertion layer, one persistence layer. No Electron. No Node. Native C.
+<img src="images/demo.gif" alt="FMAN demo" width="900">
 
-## Architecture
+</div>
 
-<p align="center">
-  <img src="images/arch.png" width="950">
-</p>
+## Overview
 
-```
-RunPlan → Worker Queue → HTTP Pool (libcurl) → Response Queue → SQLite → Assertions → RunResult
-```
+FMAN is a command-line tool for running HTTP API checks from CLI arguments or `.fman` files.
 
-## Install
+Single request from the command line:
 
 ```bash
-
-
-git clone https://github.com/Honuratus/FMAN.git
-cd FMAN
-
-./scripts/install.sh
-
-cmake -S . -B build && cmake --build build
-sudo cmake --install build   # optional
+fman get https://example.com --expect-status 200
 ```
 
-> Requires: CMake · GCC/Clang · libcurl · SQLite3
+Multiple checks can be written in a plain text `.fman` file:
 
-## CLI
-
-```bash
-fman get https://example.com
-
-fman get https://example.com \
-  --expect-status 200 \
-  --expect-header "Content-Type" "text/html" \
-  --expect-body "Example Domain"
-
-fman get http://127.0.0.1:8080/test.bin \
-  --expect-status 200 \
-  --expect-body hex:7F8A
-```
-
-## DSL
-
-```text
+```http
 GET https://example.com
 EXPECT status 200
 EXPECT header Content-Type text/html
@@ -63,78 +35,287 @@ EXPECT status 200
 EXPECT header Content-Type application/json
 ```
 
+Run the file with:
+
 ```bash
 fman run smoke.fman
 ```
 
-Handwritten lexer + recursive-descent parser. Produces the same `RunPlan` as the CLI.
+Both input paths produce the same internal `RunPlan`. The runtime schedules requests across worker threads, stores response metadata in SQLite, and evaluates assertions after each response is completed.
+
+FMAN is implemented in ISO C99 and uses `libcurl`, `SQLite`, POSIX threads, and CMake.
+
+## Architecture
+
+FMAN uses the same runtime path for CLI commands and `.fman` files. Input parsing is separate from execution; both inputs are converted into a `RunPlan` before scheduling.
+
+<table>
+  <tr>
+    <td width="68%" valign="top">
+      <img src="images/arch.png" alt="FMAN architecture" width="100%">
+    </td>
+    <td width="32%" valign="top">
+
+<strong>Runtime components</strong>
+
+<table>
+  <tr>
+    <th align="left">Component</th>
+    <th align="left">Role</th>
+  </tr>
+  <tr>
+    <td><code>RunPlan</code></td>
+    <td>request and assertion model</td>
+  </tr>
+  <tr>
+    <td><code>Request Queue</code></td>
+    <td>thread-safe request dispatch</td>
+  </tr>
+  <tr>
+    <td><code>HTTP Worker Pool</code></td>
+    <td>parallel request execution</td>
+  </tr>
+  <tr>
+    <td><code>Response Queue</code></td>
+    <td>completed response collection</td>
+  </tr>
+  <tr>
+    <td><code>DB Worker</code></td>
+    <td>serialized SQLite writes</td>
+  </tr>
+  <tr>
+    <td><code>Assertion Engine</code></td>
+    <td>status, header, and body checks</td>
+  </tr>
+</table>
+
+</td>
+  </tr>
+</table>
+
+Execution flow:
+
+```text
+CLI / DSL -> RunPlan -> Request Queue -> Worker Pool -> Response Queue -> SQLite -> Assertions -> RunResult
+```
+
+## Installation
+
+### Requirements
+
+| Dependency    | Purpose             |
+| ------------- | ------------------- |
+| CMake         | Build configuration |
+| GCC / Clang   | C compiler          |
+| libcurl       | HTTP client backend |
+| SQLite3       | Local persistence   |
+| POSIX threads | Worker execution    |
+
+### Build
+
+```bash
+git clone https://github.com/Honuratus/FMAN.git
+cd FMAN
+
+./scripts/install.sh
+
+cmake -S . -B build
+cmake --build build
+```
+
+Optional system install:
+
+```bash
+sudo cmake --install build
+```
+
+## Usage
+
+### CLI
+
+Basic request:
+
+```bash
+fman get https://example.com
+```
+
+Status, header, and body assertions:
+
+```bash
+fman get https://example.com \
+  --expect-status 200 \
+  --expect-header "Content-Type" "text/html" \
+  --expect-body "Example Domain"
+```
+
+Binary body assertion:
+
+```bash
+fman get http://127.0.0.1:8080/test.bin \
+  --expect-status 200 \
+  --expect-body hex:7F8A
+```
+
+### DSL
+
+Example `smoke.fman` file:
+
+```http
+GET https://example.com
+EXPECT status 200
+EXPECT header Content-Type text/html
+EXPECT body contains "Example Domain"
+
+GET https://httpbin.org/json
+EXPECT status 200
+EXPECT header Content-Type application/json
+```
+
+Run a DSL file:
+
+```bash
+fman run smoke.fman
+```
+
+The DSL is parsed with a handwritten lexer and recursive-descent parser. Parsed DSL input is converted into the same `RunPlan` representation used by the CLI.
 
 ## Performance
 
-128 requests · 200 ms artificial latency · local server
+Benchmark setup:
 
-<p align="center">
-  <img src="images/performance.png" width="750">
-</p>
+| Parameter          | Value             |
+| ------------------ | ----------------- |
+| Requests           | 128               |
+| Artificial latency | 200 ms            |
+| Server             | Local HTTP server |
 
-| Workers | Time |
-|--------:|-----:|
-| 1 | 25.751 s |
-| 2 | 12.922 s |
-| 4 | 6.511 s |
-| 8 | 3.254 s |
-| 16 | 1.692 s |
-| 32 | 1.492 s |
-| **64** | **1.331 s** |
-| 128 | 1.619 s |
+### Runtime scaling
 
-<p align="center">
-  <img src="images/throughput.png" width="750">
-</p>
+<table>
+  <tr>
+    <td width="620">
+      <img src="images/performance.png" alt="Execution time by worker count" width="620">
+    </td>
+    <td valign="top">
+      <table>
+        <tr>
+          <th align="right">Workers</th>
+          <th align="right">Time</th>
+        </tr>
+        <tr><td align="right">1</td><td align="right">25.751 s</td></tr>
+        <tr><td align="right">2</td><td align="right">12.922 s</td></tr>
+        <tr><td align="right">4</td><td align="right">6.511 s</td></tr>
+        <tr><td align="right">8</td><td align="right">3.254 s</td></tr>
+        <tr><td align="right">16</td><td align="right">1.692 s</td></tr>
+        <tr><td align="right">32</td><td align="right">1.492 s</td></tr>
+        <tr><td align="right"><strong>64</strong></td><td align="right"><strong>1.331 s</strong></td></tr>
+        <tr><td align="right">128</td><td align="right">1.619 s</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
-Peak throughput: ~96 req/s at 64 workers.
+### Throughput
 
-<p align="center">
-  <img src="images/memory.png" width="750">
-</p>
+<table>
+  <tr>
+    <td width="620">
+      <img src="images/throughput.png" alt="Throughput by worker count" width="620">
+    </td>
+    <td valign="top">
+      <table>
+        <tr>
+          <th align="right">Workers</th>
+          <th align="right">Throughput</th>
+        </tr>
+        <tr>
+          <td align="right"><strong>64</strong></td>
+          <td align="right"><strong>~96 req/s</strong></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
-Peak memory: <18 MB at 128 workers.
+### Memory usage
 
-## Memory Safety
+<table>
+  <tr>
+    <td width="620">
+      <img src="images/memory.png" alt="Memory usage by worker count" width="620">
+    </td>
+    <td valign="top">
+      <table>
+        <tr>
+          <th align="right">Workers</th>
+          <th align="right">Memory</th>
+        </tr>
+        <tr>
+          <td align="right">128</td>
+          <td align="right">&lt;18 MB</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
-```
+## Memory Checking
+
+Valgrind summary:
+
+```text
 in use at exit: 0 bytes in 0 blocks
-4,755 allocs, 4,755 frees — no leaks possible
+4,755 allocs, 4,755 frees
 ERROR SUMMARY: 0 errors from 0 contexts
 ```
 
 ## Development
 
+Run the full local check script:
+
 ```bash
 ./scripts/check.sh
 ```
 
-Runs configure · build · unit tests · integration tests · smoke tests · Valgrind.
+The script runs:
 
-## Roadmap
+* configure
+* build
+* unit tests
+* integration tests
+* smoke tests
+* Valgrind
 
-**Done** — parallel runtime · worker pool · SQLite persistence · CLI · DSL · assertion engine
+## Feature Status
 
-**Planned** — POST/PUT/PATCH · variables · env files · JSON assertions · auth · collections · HTML reports · JUnit export
-
-## Compared to
-
-| Tool | Runtime |
-|------|---------|
-| curl | Native |
-| Hurl | Native |
-| Bruno | Electron |
-| Postman | Electron |
-| Newman | Node.js |
-| **FMAN** | **Native C** |
+| Area               | Status      |
+| ------------------ | ----------- |
+| Parallel runtime   | Implemented |
+| Worker pool        | Implemented |
+| SQLite persistence | Implemented |
+| CLI interface      | Implemented |
+| DSL parser         | Implemented |
+| Assertion engine   | Implemented |
+| POST / PUT / PATCH | Planned     |
+| Variables          | Planned     |
+| Environment files  | Planned     |
+| JSON assertions    | Planned     |
+| Authentication     | Planned     |
+| Collections        | Planned     |
+| HTML reports       | Planned     |
+| JUnit export       | Planned     |
 
 ## Contributing
 
-Follow existing style · keep PRs focused · add tests · `scripts/check.sh` must pass.
+Pull requests should:
 
-MIT License · Built on libcurl, SQLite, POSIX Threads, CMake
+* follow the existing code style
+* keep changes focused
+* include tests for new behavior
+* pass `scripts/check.sh`
+
+## License
+
+MIT License.
+
+FMAN uses libcurl, SQLite, POSIX threads, and CMake.
