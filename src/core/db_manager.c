@@ -49,7 +49,8 @@ int db_init(const char* db_name){
         "body_len INTEGER,"
         "status INTEGER DEFAULT 0,"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-        "CONSTRAINT fk_collection FOREIGN KEY(collection_id) REFERENCES collections(id)"
+        "CONSTRAINT fk_collection FOREIGN KEY(collection_id) REFERENCES collections(id),"
+        "CONSTRAINT uq_request_identity UNIQUE(collection_id, method, url)"
         ");";
 
     
@@ -222,10 +223,10 @@ int db_save_request(Request* req){
 
     sqlite3_stmt* stmt = NULL;
     const char* sql = 
-        "INSERT INTO requests ("
+        "INSERT OR IGNORE INTO requests ("
         "collection_id,method,url,url_len,"
         "headers,headers_len,body,body_len)"
-        "VALUES(?,?,?,?,?,?,?,?)";
+        "VALUES(?,?,?,?,?,?,?,?);";
     
     
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
@@ -245,7 +246,30 @@ int db_save_request(Request* req){
 
     if (sqlite3_step(stmt) != SQLITE_DONE) goto failure;
 
-    req->id = (int)sqlite3_last_insert_rowid(db);
+    sqlite3_finalize(stmt);
+    stmt = NULL;
+
+    sql = 
+        "SELECT id FROM requests "
+        "WHERE collection_id = ? "
+        "AND method = ? "
+        "AND url = ? "
+        "LIMIT 1;";
+
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "sqlite3_prepare_v2 error: %s\n", sqlite3_errmsg(db));
+        return SQLITE_ERROR;
+    }
+    if (sqlite3_bind_int(stmt, 1, req->collection_id) != SQLITE_OK) goto failure;
+    if (sqlite3_bind_int(stmt, 2, req->method) != SQLITE_OK) goto failure;
+    if (sqlite3_bind_text(stmt, 3, req->url, req->url_len, SQLITE_STATIC) != SQLITE_OK) goto failure;
+
+    if (sqlite3_step(stmt) != SQLITE_ROW) goto failure;
+
+    
+    req->id = sqlite3_column_int(stmt, 0);
+
     LOG_INFO("[Info] Request saved with ID: %d\n", req->id);
 
     sqlite3_finalize(stmt);

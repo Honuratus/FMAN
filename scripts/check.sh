@@ -22,6 +22,7 @@ GENERATED_FILES=(
     "${BUILD_DIR}/fman_test_server.py"
     "${BUILD_DIR}/fman-http.log"
     "${BUILD_DIR}/fman-parser-negative.out"
+    "default.db"
     "runner.db"
     "test_runtime.db"
     ".fman/default.db"

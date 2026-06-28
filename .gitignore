@@ -12,7 +12,9 @@
 /to-do
 
 /external/
+
 runner.db
+default.db
 
 /scripts/bench.log
 /scripts/benchmark.sh

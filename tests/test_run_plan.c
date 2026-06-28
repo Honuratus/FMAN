@@ -61,7 +61,7 @@ static void test_run_plan_four_cases_all_pass(void)
     plan.worker_count = 2;
     plan.default_timeout_ms = 5000;
     plan.save_history = true;
-    plan.db_path = strdup("runner.db");
+    plan.db_path = strdup("default.db");
     plan.collection_name = strdup("TEST_FOUR_CASES_PASS");
 
     plan.case_count = 4;
@@ -109,7 +109,7 @@ static void test_run_plan_four_cases_one_assertion_fails(void)
     plan.worker_count = 2;
     plan.default_timeout_ms = 5000;
     plan.save_history = true;
-    plan.db_path = strdup("runner.db");
+    plan.db_path = strdup("default.db");
     plan.collection_name = strdup("TEST_FOUR_CASES_FAIL");
 
     plan.case_count = 4;
