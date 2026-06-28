@@ -37,12 +37,10 @@ jobs:
         run: cmake --build build
 
       - name: Start local test server
+        - name: Run checks
         run: |
-          mkdir -p /tmp/fuckman-test-server
-          echo "fuckman test server" > /tmp/fuckman-test-server/index.html
-          cd /tmp/fuckman-test-server
-          python3 -m http.server 8080 --bind 127.0.0.1 &
-          sleep 1
+          chmod +x scripts/check.sh
+          ./scripts/check.sh
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
