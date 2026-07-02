@@ -43,24 +43,27 @@ Request* create_request(
 
     req->method = method;
     req->collection_id = collection_id;
-    
-    req->body_len = body_len;
 
-    if(headers)
-        req->headers_len = strlen(headers);
-    if(url)
+    if (url) {
         req->url_len = strlen(url);
-    
+        req->url = safe_copy_string(url, req->url_len);
+        if (req->url_len > 0 && !req->url) goto failure;
+    }
 
+    if (headers) {
+        req->headers_len = strlen(headers);
+        req->headers = safe_copy_string(headers, req->headers_len);
+        if (req->headers_len > 0 && !req->headers) goto failure;
+    }
 
-    req->url = safe_copy_string(url, req->url_len);
-    req->headers = safe_copy_string(headers, req->headers_len);
-    req->body = safe_copy_blob(body, body_len);
-
-    if(req->url_len > 0 && !req->url) goto failure;
-    if(req->headers_len > 0 && !req->headers) goto failure;
-    if(req->body_len > 0 && !req->body) goto failure;
-
+    if (body && body_len > 0) {
+        req->body_len = body_len;
+        req->body = safe_copy_blob(body, body_len);
+        if (!req->body) goto failure;
+    } else {
+        req->body = NULL;
+        req->body_len = 0;
+    }
 
     return req; 
 

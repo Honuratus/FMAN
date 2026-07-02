@@ -8,6 +8,7 @@
 #include "dsl_token.h"
 #include "run_plan.h"
 #include "assertion.h"
+#include "logger.h"
 
 extern char *strdup(const char *s);
 
@@ -135,7 +136,6 @@ DslParseResult dsl_parse_run_plan(
             error->line = 0;
             error->column = 0;
         }
-
         return DSL_PARSE_ERROR;
     }
 
@@ -148,15 +148,19 @@ DslParseResult dsl_parse_run_plan(
             error->line = 0;
             error->column = 0;
         }
-
         return DSL_PARSE_ERROR;
     }
 
     bool ok = parse_program(parser, plan);
 
+    LOG_ERROR("ok: %d\n", ok);
+    LOG_ERROR("had_error: %d\n", parser->had_error);
+
+
     if (!ok || parser->had_error) {
         dsl_parser_destroy(parser);
         free_run_plan(plan);
+        LOG_INFO("[PARSE ERROR 3]");
         return DSL_PARSE_ERROR;
     }
 

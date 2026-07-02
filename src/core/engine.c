@@ -8,6 +8,7 @@
 #include "orchestrator.h"
 #include "models.h"
 #include "assertion.h"
+#include "logger.h"
 
 int run_plan(const RunPlan *plan, RunResult *result)
 {
